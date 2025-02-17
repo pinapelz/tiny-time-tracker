@@ -1,5 +1,7 @@
-use chrono::Local;
 use rusqlite::{Connection, Result};
+use serde::Serialize;
+
+
 
 pub fn create_db() -> Result<()> {
     let conn = Connection::open("ttt.db")?;
@@ -73,4 +75,25 @@ pub fn file_path_already_tracked(filepath: &str) -> Result<bool> {
     let mut stmt = conn.prepare("SELECT EXISTS(SELECT 1 FROM tasks WHERE filepath = ?1)")?;
     let exists: i64 = stmt.query_row(&[filepath], |row| row.get(0))?;
     Ok(exists == 1)
+}
+
+pub fn get_all_tasks() -> Result<Vec<(i64, String, String, i64)>> {
+    let conn = Connection::open("ttt.db")?;
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name, 
+        CASE 
+            WHEN a.id IS NOT NULL THEN 'Running' 
+            ELSE COALESCE(
+                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id), 
+                'Never'
+            ) 
+        END AS last_opened,
+        COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) AS total_playtime
+        FROM tasks t
+        LEFT JOIN active a ON t.id = a.id"
+    )?;
+    let tasks = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(tasks)
 }

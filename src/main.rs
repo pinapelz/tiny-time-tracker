@@ -1,10 +1,9 @@
 use axum::{
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Json},
     routing::{get, post},
     Router,
     Form
 };
-use serde::Deserialize;
 use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 mod mswin;
@@ -12,6 +11,8 @@ mod scheduler;
 mod db;
 use dotenv::dotenv;
 use std::env;
+use serde::{Deserialize, Serialize};
+
 
 #[derive(Deserialize)]
 struct CreateTaskForm {
@@ -28,6 +29,7 @@ async fn start_web_server() {
     let app = Router::new()
         .route("/", get(index))
         .route("/create", post(create_new_tracked_app))
+        .route("/tasks", get(get_tasks))
         .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -41,6 +43,16 @@ async fn start_web_server() {
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("../static/index.html"))
+}
+
+async fn get_tasks() -> impl IntoResponse {
+    match db::db::get_all_tasks() {
+        Ok(tasks) => Json(tasks).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to fetch tasks: {}", e)
+        ).into_response(),
+    }
 }
 
 async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoResponse {

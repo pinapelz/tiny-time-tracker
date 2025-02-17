@@ -55,9 +55,9 @@
                 <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Image</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Playtime</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Time</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200" id="timeEntries">
@@ -67,5 +67,38 @@
             </div>
         </main>
     </div>
+    <script>
+        function formatSeconds(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainingSeconds = seconds % 60;
+            return `${hours}h ${minutes}m ${remainingSeconds}s`;
+        }
+
+        function updateTasks() {
+            fetch('/tasks')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('timeEntries');
+                    tbody.innerHTML = data.map(task => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${task[1]}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${task[2]}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${formatSeconds(task[3])}
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => console.error('Error fetching tasks:', error));
+        }
+    
+        document.addEventListener('DOMContentLoaded', updateTasks);
+        setInterval(updateTasks, 30000);
+    </script>
 </body>
 </html>

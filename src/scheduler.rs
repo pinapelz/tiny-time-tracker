@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 
-use axum::extract::path;
 pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str, path_to_trigger: &str, task_id: &str, path_to_db: & str) -> std::io::Result<()> {
     let task_template = r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
