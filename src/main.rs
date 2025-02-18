@@ -6,8 +6,6 @@ use axum::{
     Router,
     Form
 };
-use serde_json::value::Index;
-use winapi::um::minwinbase::EXIT_THREAD_DEBUG_EVENT;
 use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 mod mswin;
@@ -23,6 +21,8 @@ use askama::Template;
 struct CreateTaskForm {
     task_name: String,
     notes: Option<String>,
+    #[serde(default)]
+    create_scheduled_tasks: bool,
 }
 
 #[derive(Deserialize)]
@@ -163,25 +163,27 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
     let launch_task_name = format!("OnLaunchTinyTimeTracker{}", next_available_id);
     let close_task_name = format!("OnCloseTinyTimeTracker{}", next_available_id);
 
-    if let Err(e) = scheduler::create_scheduled_task(
-        &launch_task_name,
-        &volume_path,
-        "4688",
-        &trigger_exe_path,
-        &next_available_id.to_string(),
-        &db_path,
-    ) {
-        eprintln!("Error creating scheduled task for Launch: {}", e);
-    }
-    if let Err(e) = scheduler::create_scheduled_task(
-        &close_task_name,
-        &volume_path,
-        "4689",
-        &trigger_exe_path,
-        &next_available_id.to_string(),
-        &db_path,
-    ) {
-        eprintln!("Error creating scheduled task for Launch: {}", e);
+    if form.create_scheduled_tasks {
+        if let Err(e) = scheduler::create_scheduled_task(
+            &launch_task_name,
+            &volume_path,
+            "4688",
+            &trigger_exe_path,
+            &next_available_id.to_string(),
+            &db_path,
+        ) {
+            eprintln!("Error creating scheduled task for Launch: {}", e);
+        }
+        if let Err(e) = scheduler::create_scheduled_task(
+            &close_task_name,
+            &volume_path,
+            "4689",
+            &trigger_exe_path,
+            &next_available_id.to_string(),
+            &db_path,
+        ) {
+            eprintln!("Error creating scheduled task for Launch: {}", e);
+        }
     }
     if let Err(e) = db::db::insert_task(
         &db_path,

@@ -70,6 +70,20 @@
                   rows="3"
                 ></textarea>
               </div>
+              <div class="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="create_scheduled_tasks"
+                  name="create_scheduled_tasks"
+                  class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  onchange="this.value = this.checked ? 'true' : 'false'"
+                  value="true"
+                  checked
+                />
+                <label for="create_scheduled_tasks" class="ml-2 block text-sm text-gray-700">
+                  Create scheduled tasks for automatic tracking
+                </label>
+              </div>
               <div class="flex justify-between">
                 <button
                   type="submit"

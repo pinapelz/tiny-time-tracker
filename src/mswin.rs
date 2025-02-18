@@ -8,6 +8,7 @@ use winapi::shared::minwindef::DWORD;
 pub fn filechooser_select_executable() -> String {
     let path = FileDialog::new()
     .add_filter("Executable", &["exe"])
+    .add_filter("All Files", &["*"])
     .pick_file();
     path.unwrap().to_str().unwrap().to_string()
 }
