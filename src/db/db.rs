@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Result};
-use serde::Serialize;
+use chrono::Local;
 
 
 
@@ -8,9 +8,11 @@ pub fn create_db() -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            notes TEXT NULL,
             name VARCHAR(255),
             diskpath TEXT UNIQUE NOT NULL,
-            filepath TEXT UNIQUE NOT NULL
+            filepath TEXT UNIQUE NOT NULL,
+            enabled BOOLEAN NOT NULL DEFAULT 1
         )",
         [],
     )?;
@@ -46,39 +48,39 @@ pub fn create_db() -> Result<()> {
     Ok(())
 }
 
-pub fn insert_task(id: &str, name: &str, diskpath: &str, filepath: &str) -> Result<()> {
-    let conn = Connection::open("ttt.db")?;
+pub fn insert_task(db_path: &str, id: &str, name: &str, notes: &str, diskpath: &str, filepath: &str) -> Result<()> {
+    let conn = Connection::open(db_path)?;
     conn.execute(
-        "INSERT INTO tasks (id, name, diskpath, filepath) VALUES (?1, ?2, ?3, ?4)",
-        &[id, name, diskpath, filepath],
+        "INSERT INTO tasks (id, name, notes, diskpath, filepath) VALUES (?1, ?2, ?3, ?4, ?5)",
+        &[id, name, notes, diskpath, filepath],
     )?;
     print!("Inserted task with id: {}", id);
     Ok(())
 }
 
-pub fn get_next_id() -> Result<i64> {
-    let conn = Connection::open("ttt.db")?;
+pub fn get_next_id(db_path: &str,) -> Result<i64> {
+    let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare("SELECT COALESCE(MAX(id), 0) + 1 FROM tasks")?;
     let next_id: i64 = stmt.query_row([], |row| row.get(0))?;
     Ok(next_id)
 }
 
-fn get_active_task_start_time(id: &str) -> Result<String> {
-    let conn = Connection::open("ttt.db")?;
+fn get_active_task_start_time(db_path: &str, id: &str) -> Result<String> {
+    let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare("SELECT datetime FROM active WHERE id = ?1")?;
     let start_time: String = stmt.query_row(&[id], |row| row.get(0))?;
     Ok(start_time)
 }
 
-pub fn file_path_already_tracked(filepath: &str) -> Result<bool> {
-    let conn = Connection::open("ttt.db")?;
+pub fn file_path_already_tracked(db_path: &str, filepath: &str) -> Result<bool> {
+    let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare("SELECT EXISTS(SELECT 1 FROM tasks WHERE filepath = ?1)")?;
     let exists: i64 = stmt.query_row(&[filepath], |row| row.get(0))?;
     Ok(exists == 1)
 }
 
-pub fn get_all_tasks() -> Result<Vec<(i64, String, String, i64)>> {
-    let conn = Connection::open("ttt.db")?;
+pub fn get_all_tasks(db_path: &str) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
+    let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare(
         "SELECT t.id, t.name, 
         CASE 
@@ -88,12 +90,27 @@ pub fn get_all_tasks() -> Result<Vec<(i64, String, String, i64)>> {
                 'Never'
             ) 
         END AS last_opened,
-        COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) AS total_playtime
+        CASE 
+            WHEN a.id IS NOT NULL THEN 
+                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) + 
+                (strftime('%s', 'now') - strftime('%s', a.datetime))
+            ELSE 
+                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0)
+        END AS total_playtime,
+        COALESCE(t.notes, '') as notes,
+        COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count
         FROM tasks t
         LEFT JOIN active a ON t.id = a.id"
     )?;
     let tasks = stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?
+        .query_map([], |row| Ok((
+            row.get(0)?, 
+            row.get(1)?, 
+            row.get(2)?, 
+            row.get(3)?,
+            row.get(4)?,
+            row.get(5)?
+        )))?
         .collect::<Result<Vec<_>>>()?;
     Ok(tasks)
 }
