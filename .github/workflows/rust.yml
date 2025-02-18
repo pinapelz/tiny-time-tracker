@@ -15,6 +15,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
     - name: Build
-      run: cargo build --workspace --verbose 
+      run: cargo build --release --workspace --verbose
+
+    - name: Upload Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows
+        path: target/release/*
+        retention-days: 7
