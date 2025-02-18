@@ -1,4 +1,5 @@
 use axum::{
+    extract::Path,
     response::{Html, IntoResponse, Json},
     routing::{get, post},
     Router,
@@ -11,7 +12,8 @@ mod scheduler;
 mod db;
 use dotenv::dotenv;
 use std::env;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
+use askama::Template;
 
 
 #[derive(Deserialize)]
@@ -30,6 +32,20 @@ async fn main() {
     start_web_server().await;
 }
 
+#[derive(Template, Debug)]
+#[template(path = "task_detail.html")]
+struct TaskDetailTemplate {
+    id: i64,
+    name: String,
+    last_opened: String,
+    total_playtime: String,
+    notes: String,
+    session_count: i64,
+    filepath: String,
+    volume_path: String,
+    sessions: Vec<(String, String)>,
+}
+
 async fn start_web_server() {
     db::db::create_db().expect("Error creating database");
     let app = Router::new()
@@ -37,6 +53,7 @@ async fn start_web_server() {
         .route("/create", post(create_new_tracked_app))
         .route("/delete", post(delete_tracked_app))
         .route("/tasks", get(get_tasks))
+        .route("/task/:id", get(task_detailed_view_page))
         .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -61,6 +78,46 @@ async fn get_tasks() -> impl IntoResponse {
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to fetch tasks: {}", e)
+        ).into_response(),
+    }
+}
+
+async fn task_detailed_view_page(Path(id): Path<String>) -> impl IntoResponse {
+    dotenv().ok();
+    let db_path = env::var("DB_PATH")
+        .expect("DB_PATH must be set in .env file");
+
+    match db::db::get_task_by_id(&db_path, &id) {
+        Ok((id, name, last_opened, total_playtime, notes, session_count, filepath, volume_path, sessions)) => {
+            let total_playtime = {
+                let duration = chrono::Duration::seconds(total_playtime);
+                let hours = duration.num_hours();
+                let minutes = duration.num_minutes() % 60;
+                let seconds = duration.num_seconds() % 60;
+                format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+            };
+            let template = TaskDetailTemplate {
+                id,
+                name,
+                last_opened,
+                total_playtime,
+                notes,
+                session_count,
+                filepath,
+                volume_path,
+                sessions,
+            };
+            match template.render() {
+                Ok(html) => Html(html).into_response(),
+                Err(e) => (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Template error: {}", e)
+                ).into_response(),
+            }
+        },
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to fetch task: {}", e)
         ).into_response(),
     }
 }
@@ -116,6 +173,13 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
     ))
 }
 
+
 async fn delete_tracked_app(Form(form): Form<DeletionForm>) -> impl IntoResponse {
-    // stub for deletion TODO
+    dotenv().ok();
+    let db_path = env::var("DB_PATH")
+        .expect("DB_PATH must be set in .env file");
+
+    db::db::disable_task(&db_path, form.id).unwrap();
+    scheduler::delete_scheduled_task(&form.id.to_string()).unwrap();
+    Html(format!("Program with ID: {} has been deleted. You can still navigate to this URL to view details later", form.id))
 }

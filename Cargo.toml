@@ -21,7 +21,11 @@ winapi = { version = "0.3", features = ["fileapi"] }
 tempfile = "3.17.0"
 serde = { version = "1.0", features = ["derive"] }
 dotenv = "0.15.0"
+askama = "0.12.1"
 
 [[bin]]
 name = "tiny-time-tracker"
 path = "src/main.rs"
+
+[package.metadata.askama]
+dir = "templates"

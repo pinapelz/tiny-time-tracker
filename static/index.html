@@ -1,105 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Time Tracker</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen">
+  </head>
+  <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Tiny Time Tracker</h1>
-        </header>
-        
-        <main>
-            <button
-                class="mb-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                onclick="document.getElementById('form-container').classList.toggle('hidden')">
-                Add New Application
-            </button>
+      <header class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Tiny Time Tracker</h1>
+      </header>
 
-            <div id="form-container" class="hidden transition-all duration-300">
-                <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
-                    <form hx-post="/create" hx-target="#result" hx-on::after-request="updateTasks()">
-                        <div class="mb-4">
-                            <label for="task_name" class="block text-sm font-medium text-gray-700 mb-2">
-                                Application Name
-                            </label>
-                            <input type="text" 
-                                   id="task_name" 
-                                   name="task_name" 
-                                   required 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                   placeholder="Enter application name">
-                        </div>
-                        <div class="mb-4">
-                            <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
-                                Notes (optional)
-                            </label>
-                            <textarea
-                                   id="notes" 
-                                   name="notes" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                   placeholder="Enter notes about this application"
-                                   rows="3"></textarea>
-                        </div>
-                        <div class="flex justify-between">
-                            <button type="submit" 
-                                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
-                                Add Application
-                            </button>
-                            <button type="button" 
-                                    class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                                    onclick="document.getElementById('form-container').classList.add('hidden')">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            
-            <div id="result" class="mt-4"></div>
+      <main>
+        <button
+          class="mb-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+          onclick="document.getElementById('form-container').classList.toggle('hidden')"
+        >
+          Add New Application
+        </button>
 
-            <div class="mt-8 overflow-x-auto">
-                <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Time</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200" id="timeEntries">
-                        <!-- Time entries will be dynamically inserted here -->
-                    </tbody>
-                </table>
-            </div>
-        </main>
+        <div id="form-container" class="hidden transition-all duration-300">
+          <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
+            <form
+              hx-post="/create"
+              hx-target="#result"
+              hx-on::after-request="updateTasks()"
+            >
+              <div class="mb-4">
+                <label
+                  for="task_name"
+                  class="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Application Name
+                </label>
+                <input
+                  type="text"
+                  id="task_name"
+                  name="task_name"
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter application name"
+                />
+              </div>
+              <div class="mb-4">
+                <label
+                  for="notes"
+                  class="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Notes (optional)
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter notes about this application"
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="flex justify-between">
+                <button
+                  type="submit"
+                  class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                >
+                  Add Application
+                </button>
+                <button
+                  type="button"
+                  class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                  onclick="document.getElementById('form-container').classList.add('hidden')"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="result" class="mt-4"></div>
+
+        <div class="mt-8 overflow-x-auto">
+          <table
+            class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm"
+          >
+            <thead class="bg-gray-50">
+              <tr>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Name
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Notes
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Last Activity
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Sessions
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Total Time
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200" id="timeEntries">
+              <!-- Time entries will be dynamically inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
     <script>
-        function formatSeconds(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const remainingSeconds = seconds % 60;
-            return `${hours}h ${minutes}m ${remainingSeconds}s`;
-        }
+      function formatSeconds(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remainingSeconds = seconds % 60;
+        return `${hours}h ${minutes}m ${remainingSeconds}s`;
+      }
 
-        function updateTasks() {
-    fetch('/tasks')
-        .then(response => response.json())
-        .then(data => {
-            const tbody = document.getElementById('timeEntries');
-            tbody.innerHTML = data.map(task => `
+      function updateTasks() {
+        fetch("/tasks")
+          .then((response) => response.json())
+          .then((data) => {
+            const tbody = document.getElementById("timeEntries");
+            tbody.innerHTML = data
+              .map(
+                (task) => `
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${task[1]}
+                        <a href="/task/${task[0]}" class="text-blue-600 hover:text-blue-800">
+                            ${task[1]}
+                        </a>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${task[4] || ''}
+                        ${task[4] || ""}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         ${task[2]}
@@ -111,13 +155,15 @@
                         ${formatSeconds(task[3])}
                     </td>
                 </tr>
-            `).join('');
-        })
-        .catch(error => console.error('Error fetching tasks:', error));
-}
-    
-        document.addEventListener('DOMContentLoaded', updateTasks);
-        setInterval(updateTasks, 30000);
+            `
+              )
+              .join("");
+          })
+          .catch((error) => console.error("Error fetching tasks:", error));
+      }
+
+      document.addEventListener("DOMContentLoaded", updateTasks);
+      setInterval(updateTasks, 30000);
     </script>
-</body>
+  </body>
 </html>

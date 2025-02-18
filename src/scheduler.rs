@@ -103,3 +103,53 @@ pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str,
     std::fs::remove_file(temp_xml_path)?;
     Ok(())
 }
+
+
+pub fn delete_scheduled_task(id: &str) -> std::io::Result<()> {
+    let mut on_start_deletion_success = false;
+    let mut on_end_deletion_success = false;
+    
+    let on_start_deletion = Command::new("schtasks")
+        .args(&[
+            "/Delete",
+            "/TN",
+            &format!("OnLaunchTinyTimeTracker{}", id),
+            "/F",
+        ])
+        .output()?;
+    if on_start_deletion.status.success() {
+        println!("Task 'OnLaunchTinyTimeTracker{}' deleted successfully.", id);
+        on_start_deletion_success = true;
+    } else {
+        eprintln!(
+            "Failed to delete task 'OnLaunchTinyTimeTracker{}': {}",
+            id,
+            String::from_utf8_lossy(&on_start_deletion.stderr)
+        );
+    }
+
+    let on_end_deletion = Command::new("schtasks")
+        .args(&[
+            "/Delete",
+            "/TN",
+            &format!("OnCloseTinyTimeTracker{}", id),
+            "/F",
+        ])
+        .output()?;
+    if on_end_deletion.status.success() { 
+        println!("Task 'OnCloseTinyTimeTracker{}' deleted successfully.", id);
+        on_end_deletion_success = true;
+    } else {
+        eprintln!(
+            "Failed to delete task 'OnCloseTinyTimeTracker{}': {}",
+            id,
+            String::from_utf8_lossy(&on_end_deletion.stderr)
+        );
+    }
+
+    if on_end_deletion_success && on_start_deletion_success {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to delete task cleanly"))
+    }
+}

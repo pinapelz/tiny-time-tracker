@@ -10,8 +10,8 @@ pub fn create_db() -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             notes TEXT NULL,
             name VARCHAR(255),
-            diskpath TEXT UNIQUE NOT NULL,
-            filepath TEXT UNIQUE NOT NULL,
+            diskpath TEXT NOT NULL,
+            filepath TEXT NOT NULL,
             enabled BOOLEAN NOT NULL DEFAULT 1
         )",
         [],
@@ -79,6 +79,64 @@ pub fn file_path_already_tracked(db_path: &str, filepath: &str) -> Result<bool> 
     Ok(exists == 1)
 }
 
+pub fn disable_task(db_path: &str, id: i64) -> Result<bool> {
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare("UPDATE tasks SET enabled = 0 WHERE id = ?1")?;
+    let success = stmt.execute([id])?;
+    assert!(success == 1);
+    Ok(true)
+}
+
+// id, name, last_opened, total_playtime, notes, session_count, filepath, volume_path, sessions
+pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i64, String, i64, String, String, Vec<(String, String)>)> {
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name, 
+        CASE 
+            WHEN a.id IS NOT NULL THEN 'Running' 
+            ELSE COALESCE(
+                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id), 
+                'Never'
+            ) 
+        END AS last_opened,
+        CASE 
+            WHEN a.id IS NOT NULL THEN 
+                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) + 
+                (strftime('%s', 'now') - strftime('%s', a.datetime))
+            ELSE 
+                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0)
+        END AS total_playtime,
+        COALESCE(t.notes, '') as notes,
+        COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count,
+        t.filepath,
+        t.diskpath
+        FROM tasks t
+        LEFT JOIN active a ON t.id = a.id
+        WHERE t.id = ?1"
+    )?;
+    let task = stmt.query_row(&[id], |row| Ok((
+        row.get(0)?, 
+        row.get(1)?, 
+        row.get(2)?, 
+        row.get(3)?,
+        row.get(4)?,
+        row.get(5)?,
+        row.get(6)?,
+        row.get(7)?
+    )))?;
+
+    let mut session_stmt = conn.prepare(
+        "SELECT start_time, end_time FROM sessions WHERE id = ?1"
+    )?;
+    let sessions = session_stmt.query_map(&[id], |row| Ok((
+        row.get(0)?,
+        row.get(1)?
+    )))?.collect::<Result<Vec<_>>>()?;
+
+    Ok((task.0, task.1, task.2, task.3, task.4, task.5, task.6, task.7, sessions))
+}
+
+// id, name, last_opened, total_playtime, notes, session_count
 pub fn get_all_tasks(db_path: &str) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare(
@@ -100,7 +158,8 @@ pub fn get_all_tasks(db_path: &str) -> Result<Vec<(i64, String, String, i64, Str
         COALESCE(t.notes, '') as notes,
         COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count
         FROM tasks t
-        LEFT JOIN active a ON t.id = a.id"
+        LEFT JOIN active a ON t.id = a.id
+        WHERE t.enabled = 1"
     )?;
     let tasks = stmt
         .query_map([], |row| Ok((
