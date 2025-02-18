@@ -2,7 +2,7 @@
 members = ["src/trigger", "."]
 
 [workspace.dependencies]
-rusqlite = "0.33"
+rusqlite = { version = "0.33", features = ["bundled"] }
 chrono = "0.4.38"
 clap = { version = "4.5.16", features = ["derive"] }
 axum = "0.6"
