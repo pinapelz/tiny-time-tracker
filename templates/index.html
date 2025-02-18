@@ -14,12 +14,23 @@
       </header>
 
       <main>
-        <button
-          class="mb-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-          onclick="document.getElementById('form-container').classList.toggle('hidden')"
-        >
-          Add New Application
-        </button>
+        <div class="flex gap-4 mb-4">
+          <button
+            class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+            onclick="document.getElementById('form-container').classList.toggle('hidden')"
+          >
+            Add New Application
+          </button>
+          {% if show_disabled %}
+            <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+              Show Active Only
+            </a>
+          {% else %}
+            <a href="/?show_disabled=true" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+              Include Removed
+            </a>
+          {% endif %}
+        </div>
 
         <div id="form-container" class="hidden transition-all duration-300">
           <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
@@ -129,7 +140,8 @@
       }
 
       function updateTasks() {
-        fetch("/tasks")
+        const url = "/tasks{% if show_disabled %}?show_disabled=true{% endif %}";
+        fetch(url)
           .then((response) => response.json())
           .then((data) => {
             const tbody = document.getElementById("timeEntries");

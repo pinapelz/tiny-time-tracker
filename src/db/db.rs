@@ -137,9 +137,10 @@ pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i
 }
 
 // id, name, last_opened, total_playtime, notes, session_count
-pub fn get_all_tasks(db_path: &str) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
+pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
     let conn = Connection::open(db_path)?;
-    let mut stmt = conn.prepare(
+    let where_clause = if !include_disabled { "WHERE t.enabled = 1" } else { "" };
+    let query = format!(
         "SELECT t.id, t.name, 
         CASE 
             WHEN a.id IS NOT NULL THEN 'Running' 
@@ -159,8 +160,10 @@ pub fn get_all_tasks(db_path: &str) -> Result<Vec<(i64, String, String, i64, Str
         COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count
         FROM tasks t
         LEFT JOIN active a ON t.id = a.id
-        WHERE t.enabled = 1"
-    )?;
+        {}", where_clause
+    );
+    
+    let mut stmt = conn.prepare(&query)?;
     let tasks = stmt
         .query_map([], |row| Ok((
             row.get(0)?, 

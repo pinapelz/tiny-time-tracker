@@ -1,10 +1,13 @@
 use axum::{
     extract::Path,
+    extract::Query,
     response::{Html, IntoResponse, Json},
     routing::{get, post},
     Router,
     Form
 };
+use serde_json::value::Index;
+use winapi::um::minwinbase::EXIT_THREAD_DEBUG_EVENT;
 use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 mod mswin;
@@ -12,7 +15,7 @@ mod scheduler;
 mod db;
 use dotenv::dotenv;
 use std::env;
-use serde::{Deserialize};
+use serde::Deserialize;
 use askama::Template;
 
 
@@ -46,6 +49,19 @@ struct TaskDetailTemplate {
     sessions: Vec<(String, String)>,
 }
 
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {
+    show_disabled: bool
+}
+
+
+#[derive(Deserialize)]
+struct TasksParams {
+    show_disabled: Option<bool>,
+}
+
+
 async fn start_web_server() {
     db::db::create_db().expect("Error creating database");
     let app = Router::new()
@@ -65,15 +81,26 @@ async fn start_web_server() {
         .unwrap();
 }
 
-async fn index() -> Html<&'static str> {
-    Html(include_str!("../static/index.html"))
+async fn index(Query(params): Query<TasksParams>) -> impl IntoResponse {
+    let template = IndexTemplate {
+        show_disabled: params.show_disabled.unwrap_or(false)
+    };
+    
+    match template.render() {
+        Ok(html) => Html(html).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template error: {}", e)
+        ).into_response(),
+    }
 }
 
-async fn get_tasks() -> impl IntoResponse {
+async fn get_tasks(Query(params): Query<TasksParams>) -> impl IntoResponse {
     dotenv().ok();
     let db_path = env::var("DB_PATH")
-    .expect("DB_PATH must be set in .env file");
-    match db::db::get_all_tasks(&db_path) {
+        .expect("DB_PATH must be set in .env file");
+    
+    match db::db::get_all_tasks(&db_path, params.show_disabled.unwrap_or(false)) {
         Ok(tasks) => Json(tasks).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -81,6 +108,7 @@ async fn get_tasks() -> impl IntoResponse {
         ).into_response(),
     }
 }
+
 
 async fn task_detailed_view_page(Path(id): Path<String>) -> impl IntoResponse {
     dotenv().ok();
