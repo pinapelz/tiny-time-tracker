@@ -136,7 +136,7 @@ pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i
     Ok((task.0, task.1, task.2, task.3, task.4, task.5, task.6, task.7, sessions))
 }
 
-// id, name, last_opened, total_playtime, notes, session_count
+
 pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
     let conn = Connection::open(db_path)?;
     let where_clause = if !include_disabled { "WHERE t.enabled = 1" } else { "" };
@@ -149,13 +149,7 @@ pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, 
                 'Never'
             ) 
         END AS last_opened,
-        CASE 
-            WHEN a.id IS NOT NULL THEN 
-                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) + 
-                (strftime('%s', 'now') - strftime('%s', a.datetime))
-            ELSE 
-                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0)
-        END AS total_playtime,
+        COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) AS total_playtime,
         COALESCE(t.notes, '') as notes,
         COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count
         FROM tasks t
