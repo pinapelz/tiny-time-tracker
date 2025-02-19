@@ -39,6 +39,15 @@ fn start_tracking(db_path: &str, id: &str) -> Result<()> {
     Ok(())
 }
 
+fn clear_active_tasks(db_path: &str) -> Result<()> {
+    let conn = Connection::open(db_path)?;
+    conn.execute(
+        "FROM active DROP *",
+        []
+    )?;
+    Ok(())
+}
+
 fn end_tracking(db_path: &str, id: &str) -> Result<()> {
     let conn = Connection::open(db_path)?;
     let curr_datetime = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -106,6 +115,9 @@ fn main() {
         }
         "end" => {
             end_tracking(db_path, id).expect("Error ending tracking");
+        }
+        "clear" => {
+            clear_active_tasks(db_path).expect("Error clearing all active tasks");
         }
         _ => {
             eprintln!("Unknown command: {}", command);
