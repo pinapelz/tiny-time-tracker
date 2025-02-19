@@ -1,5 +1,4 @@
 use rusqlite::{Connection, Result};
-use chrono::Local;
 
 
 
@@ -63,13 +62,6 @@ pub fn get_next_id(db_path: &str,) -> Result<i64> {
     let mut stmt = conn.prepare("SELECT COALESCE(MAX(id), 0) + 1 FROM tasks")?;
     let next_id: i64 = stmt.query_row([], |row| row.get(0))?;
     Ok(next_id)
-}
-
-fn get_active_task_start_time(db_path: &str, id: &str) -> Result<String> {
-    let conn = Connection::open(db_path)?;
-    let mut stmt = conn.prepare("SELECT datetime FROM active WHERE id = ?1")?;
-    let start_time: String = stmt.query_row(&[id], |row| row.get(0))?;
-    Ok(start_time)
 }
 
 pub fn file_path_already_tracked(db_path: &str, filepath: &str) -> Result<bool> {
