@@ -72,7 +72,7 @@ async fn start_web_server() {
         .route("/delete", post(delete_tracked_app))
         .route("/tasks", get(get_tasks))
         .route("/task/:id", get(task_detailed_view_page))
-        .route("/disablecleanup", post(disable_auto_cleanup_active_task))
+        .route("/disablecleanup", get(disable_auto_cleanup_active_task))
         .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
