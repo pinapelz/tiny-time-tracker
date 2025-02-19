@@ -6,6 +6,7 @@ use axum::{
     Router,
     Form
 };
+use mswin::show_confirmation_dialog;
 use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 mod mswin;
@@ -64,12 +65,14 @@ struct TasksParams {
 
 async fn start_web_server() {
     db::db::create_db().expect("Error creating database");
+    enable_auto_cleanup_active_task();
     let app = Router::new()
         .route("/", get(index))
         .route("/create", post(create_new_tracked_app))
         .route("/delete", post(delete_tracked_app))
         .route("/tasks", get(get_tasks))
         .route("/task/:id", get(task_detailed_view_page))
+        .route("/disablecleanup", post(disable_auto_cleanup_active_task))
         .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -160,6 +163,17 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
     let next_available_id = db::db::get_next_id(&db_path).unwrap();
     let filepath = mswin::filechooser_select_executable();
     let volume_path = mswin::get_device_path(&filepath).unwrap();
+
+    if db::db::file_path_already_tracked(db_path.as_str(), filepath.as_str()).unwrap(){
+        if !show_confirmation_dialog(
+        "File Already Exists", 
+        "This executable is already tracked or was previously tracked. Do you want to add it anyways?"){
+            return Html(format!(
+                "Task creation cancelled. No change has occured",
+            ))
+        }
+    }
+
     let launch_task_name = format!("OnLaunchTinyTimeTracker{}", next_available_id);
     let close_task_name = format!("OnCloseTinyTimeTracker{}", next_available_id);
 
@@ -203,7 +217,6 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
     ))
 }
 
-
 async fn delete_tracked_app(Form(form): Form<DeletionForm>) -> impl IntoResponse {
     dotenv().ok();
     let db_path = env::var("DB_PATH")
@@ -212,4 +225,25 @@ async fn delete_tracked_app(Form(form): Form<DeletionForm>) -> impl IntoResponse
     db::db::disable_task(&db_path, form.id).unwrap();
     scheduler::delete_scheduled_task(&form.id.to_string()).unwrap();
     Html(format!("Program with ID: {} has been deleted. You can still navigate to this URL to view details later", form.id))
+}
+
+fn enable_auto_cleanup_active_task(){
+    dotenv().ok();
+    let auto_cleanup = env::var("AUTO_CLEANUP_ACTIVE_TASKS")
+    .map(|v| v.to_lowercase() == "true")
+    .unwrap_or(false); 
+    if auto_cleanup{
+        let trigger_exe_path = env::var("TRIGGER_EXE_PATH")
+        .expect("TRIGGER_EXE_PATH must be set in .env file");
+    let db_path = env::var("DB_PATH")
+        .expect("DB_PATH must be set in .env file");
+        scheduler::create_cleanup_active_task(db_path.as_str(), trigger_exe_path.as_str()).unwrap()
+    }
+}
+
+// shouldn't normally be used since you never want a task to be stuck in active table
+// however, its there if for some reason you want a clean way to delete it
+async fn disable_auto_cleanup_active_task() -> impl IntoResponse{
+    scheduler::delete_cleanup_task().unwrap();
+    Html(format!("Cleaning up active tasks on login is disabled. Task deleted, if you'd like this to persist please change the relevant environment variable to false"))
 }

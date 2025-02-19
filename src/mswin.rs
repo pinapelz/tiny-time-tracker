@@ -1,8 +1,11 @@
 use rfd::FileDialog;
+use rfd::MessageDialogResult;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use winapi::um::fileapi::QueryDosDeviceW;
 use winapi::shared::minwindef::DWORD;
+use rfd::MessageDialog;
+use rfd::MessageButtons;
 
 
 pub fn filechooser_select_executable() -> String {
@@ -53,4 +56,13 @@ pub fn get_device_path(input: &str) -> Result<String, String> {
     };
     let final_path = format!("{}{}", device_path, rest_of_path);
     Ok(final_path)
+}
+
+pub fn show_confirmation_dialog(title: &str, message: &str) -> bool {
+    let result: rfd::MessageDialogResult = MessageDialog::new()
+        .set_title(title)
+        .set_description(message)
+        .set_buttons(MessageButtons::OkCancel)
+        .show();
+    result == MessageDialogResult::Yes
 }
