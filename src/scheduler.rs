@@ -2,7 +2,27 @@ use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 
-pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str, path_to_trigger: &str, task_id: &str, path_to_db: & str) -> std::io::Result<()> {
+
+fn task_exists(task_name: &str) -> bool {
+  let output = Command::new("schtasks")
+      .args(&["/Query", "/TN", task_name])
+      .output();
+  
+  match output {
+      Ok(output) => output.status.success(),
+      Err(_) => false
+  }
+}
+
+// Expects potential IO error
+pub fn create_scheduled_task(
+    task_name: &str,
+    device_path: &str,
+    event_id: &str,
+    path_to_trigger: &str,
+    task_id: &str,
+    path_to_db: &str,
+) -> std::io::Result<()> {
     let task_template = r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -54,22 +74,23 @@ pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str,
 </Task>
 "#;
 
-
     let mut task_content = task_template
-    .replace("{TaskNameTemp}", task_name)
-    .replace("{FilePathTemp}", device_path)
-    .replace("{EventIdTemp}", event_id)
-    .replace("{PathToTrigger}", path_to_trigger)
-    ;
+        .replace("{TaskNameTemp}", task_name)
+        .replace("{FilePathTemp}", device_path)
+        .replace("{EventIdTemp}", event_id)
+        .replace("{PathToTrigger}", path_to_trigger);
     let mut trigger_args = format!("--id {} --db \"{}\"", task_id, path_to_db);
     if event_id == "4689" {
-      task_content = task_content.replace("{ConditionTemp}", " *[System[Provider[@Name='Microsoft-Windows-Security-Auditing'] and (band(Keywords, 9007199254740992)) and (EventID=4689)]]");
-      task_content = task_content.replace("{FirstProcessName}", "ProcessName");
-      trigger_args = format!("end {}", trigger_args);
+        task_content = task_content.replace("{ConditionTemp}", " *[System[Provider[@Name='Microsoft-Windows-Security-Auditing'] and (band(Keywords, 9007199254740992)) and (EventID=4689)]]");
+        task_content = task_content.replace("{FirstProcessName}", "ProcessName");
+        trigger_args = format!("end {}", trigger_args);
     } else {
-      task_content = task_content.replace("{ConditionTemp}", "*[System[Provider[@Name='Microsoft-Windows-Security-Auditing'] and (EventID=4688)]]");
-      task_content = task_content.replace("{FirstProcessName}", "NewProcessName");
-      trigger_args = format!("start {}", trigger_args);
+        task_content = task_content.replace(
+            "{ConditionTemp}",
+            "*[System[Provider[@Name='Microsoft-Windows-Security-Auditing'] and (EventID=4688)]]",
+        );
+        task_content = task_content.replace("{FirstProcessName}", "NewProcessName");
+        trigger_args = format!("start {}", trigger_args);
     }
     task_content = task_content.replace("{TriggerArgs}", &trigger_args);
 
@@ -81,14 +102,7 @@ pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str,
     }
     println!("Written XML:\n{}", task_content);
     let output = Command::new("schtasks")
-        .args(&[
-            "/Create",
-            "/TN",
-            task_name,
-            "/XML",
-            temp_xml_path,
-            "/F",
-        ])
+        .args(&["/Create", "/TN", task_name, "/XML", temp_xml_path, "/F"])
         .output()?;
     if output.status.success() {
         println!("Task '{}' created successfully.", task_name);
@@ -104,11 +118,111 @@ pub fn create_scheduled_task(task_name: &str, device_path: &str, event_id: &str,
     Ok(())
 }
 
+pub fn create_cleanup_active_task(path_to_db: &str, path_to_trigger: &str) -> std::io::Result<()> {
+  if task_exists("CleanUpActiveTasksTTT"){
+    println!("Auto Clean Up Active Task found... Skipping creation");
+    return Ok(())
+  }
+    let cleanup_task_template = r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Author>TinyTimeTracker</Author>
+    <URI>\CleanUpActiveTasksTTT</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>false</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT72H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{PathToTrigger}</Command>
+      <Arguments>clear --db_path {PathToDB}</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+  "#;
+    let task_content = cleanup_task_template
+        .replace("{PathToTrigger}", path_to_trigger)
+        .replace("{PathToDB}", path_to_db);
+    println!("Written XML:\n{}", task_content);
+
+    let temp_xml_path = "temp-task.xml";
+    {
+        let mut file = File::create(temp_xml_path)?;
+        file.write_all(task_content.as_bytes())?;
+        file.flush()?;
+    }
+    let output = Command::new("schtasks")
+        .args(&[
+            "/Create",
+            "/TN",
+            "CleanUpActiveTasksTTT",
+            "/XML",
+            temp_xml_path,
+            "/F",
+        ])
+        .output()?;
+    if output.status.success() {
+        println!("Task '{}' created successfully.", "CleanUpActiveTasksTTT");
+    } else {
+        std::fs::remove_file(temp_xml_path)?;
+        eprintln!(
+            "Failed to create task '{}': {}",
+            "CleanUpActiveTasksTTT",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    std::fs::remove_file(temp_xml_path)?;
+    Ok(())
+}
+
+pub fn delete_cleanup_task() -> std::io::Result<()> {
+    let delete_task_command_execution = Command::new("schtasks")
+        .args(&["/Delete", "/TN", &format!("CleanUpActiveTasksTTT"), "/F"])
+        .output()?;
+    if delete_task_command_execution.status.success() {
+        println!("Auto Clean Up Task Deleted!");
+    } else {
+        eprintln!(
+            "Failed to delete Auto Clean Up Task: {}",
+            String::from_utf8_lossy(&delete_task_command_execution.stderr)
+        );
+    }
+    Ok(())
+}
 
 pub fn delete_scheduled_task(id: &str) -> std::io::Result<()> {
     let mut on_start_deletion_success = false;
     let mut on_end_deletion_success = false;
-    
+
     let on_start_deletion = Command::new("schtasks")
         .args(&[
             "/Delete",
@@ -136,7 +250,7 @@ pub fn delete_scheduled_task(id: &str) -> std::io::Result<()> {
             "/F",
         ])
         .output()?;
-    if on_end_deletion.status.success() { 
+    if on_end_deletion.status.success() {
         println!("Task 'OnCloseTinyTimeTracker{}' deleted successfully.", id);
         on_end_deletion_success = true;
     } else {
@@ -150,6 +264,9 @@ pub fn delete_scheduled_task(id: &str) -> std::io::Result<()> {
     if on_end_deletion_success && on_start_deletion_success {
         Ok(())
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to delete task cleanly"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to delete task cleanly",
+        ))
     }
 }
