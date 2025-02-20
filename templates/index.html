@@ -22,13 +22,19 @@
             Add New Application
           </button>
           {% if show_disabled %}
-            <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
-              Show Active Only
-            </a>
+          <a
+            href="/"
+            class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+          >
+            Show Active Only
+          </a>
           {% else %}
-            <a href="/?show_disabled=true" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
-              Include Removed
-            </a>
+          <a
+            href="/?show_disabled=true"
+            class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+          >
+            Include Removed
+          </a>
           {% endif %}
         </div>
 
@@ -80,7 +86,10 @@
                   value="true"
                   checked
                 />
-                <label for="create_scheduled_tasks" class="ml-2 block text-sm text-gray-700">
+                <label
+                  for="create_scheduled_tasks"
+                  class="ml-2 block text-sm text-gray-700"
+                >
                   Create scheduled tasks for automatic tracking
                 </label>
               </div>
@@ -116,29 +125,39 @@
             <thead class="bg-gray-50">
               <tr>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onclick="sortTable('name')"
                 >
                   Name
+                  <span id="sort-name" class="ml-1"></span>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onclick="sortTable('notes')"
                 >
                   Notes
+                  <span id="sort-notes" class="ml-1"></span>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onclick="sortTable('lastActivity')"
                 >
                   Last Activity
+                  <span id="sort-lastActivity" class="ml-1"></span>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onclick="sortTable('sessions')"
                 >
                   Sessions
+                  <span id="sort-sessions" class="ml-1"></span>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                  onclick="sortTable('totalTime')"
                 >
                   Total Time
+                  <span id="sort-totalTime" class="ml-1"></span>
                 </th>
               </tr>
             </thead>
@@ -153,6 +172,31 @@
       </main>
     </div>
     <script>
+      let currentSort = {
+        column: "name",
+        direction: "asc",
+      };
+
+      function sortTable(column) {
+        const sortSpan = document.getElementById(`sort-${column}`);
+        if (currentSort.column == column) {
+          currentSort.direction =
+            currentSort.direction === "asc" ? "desc" : "asc";
+        } else {
+          const lastSortedColumnSpan = document.getElementById(`sort-${currentSort.column}`);
+          lastSortedColumnSpan.textContent = "";
+          currentSort.column = column;
+          currentSort.direction = "asc";
+        }
+        document.querySelectorAll('[id^="sort-"]').forEach((span) => {
+          span.textContent = "";
+          span.classList.add("text-gray-300");
+        });
+        sortSpan.textContent = currentSort.direction === "asc" ? "▲" : "▼";
+        sortSpan.classList.remove("text-gray-300");
+        updateTasks();
+      }
+
       function formatSeconds(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
@@ -161,20 +205,57 @@
       }
 
       function updateTasks() {
-        const url = "/tasks{% if show_disabled %}?show_disabled=true{% endif %}";
+        const url =
+          "/tasks{% if show_disabled %}?show_disabled=true{% endif %}";
         fetch(url)
           .then((response) => response.json())
           .then((data) => {
+            data.sort((a, b) => {
+              let compareA, compareB;
+
+              switch (currentSort.column) {
+                case "name":
+                  compareA = a[1].toLowerCase();
+                  compareB = b[1].toLowerCase();
+                  break;
+                case "notes":
+                  compareA = (a[4] || "").toLowerCase();
+                  compareB = (b[4] || "").toLowerCase();
+                  break;
+                case "lastActivity":
+                  compareA = new Date(a[2]);
+                  compareB = new Date(b[2]);
+                  break;
+                case "sessions":
+                  compareA = a[5];
+                  compareB = b[5];
+                  break;
+                case "totalTime":
+                  compareA = a[3];
+                  compareB = b[3];
+                  break;
+                default:
+                  compareA = a[1].toLowerCase();
+                  compareB = b[1].toLowerCase();
+              }
+
+              if (compareA < compareB)
+                return currentSort.direction === "asc" ? -1 : 1;
+              if (compareA > compareB)
+                return currentSort.direction === "asc" ? 1 : -1;
+              return 0;
+            });
             const tbody = document.getElementById("timeEntries");
             let totalSeconds = 0;
             tbody.innerHTML = data
-              .map(
-                (task) => {
-                  totalSeconds += task[3];
-                  return `
+              .map((task) => {
+                totalSeconds += task[3];
+                return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <a href="/task/${task[0]}" class="text-blue-600 hover:text-blue-800">
+                            <a href="/task/${
+                              task[0]
+                            }" class="text-blue-600 hover:text-blue-800">
                                 ${task[1]}
                             </a>
                         </td>
@@ -192,10 +273,10 @@
                         </td>
                     </tr>
                   `;
-                }
-              )
+              })
               .join("");
-            document.getElementById("grandTotal").textContent = formatSeconds(totalSeconds);
+            document.getElementById("grandTotal").textContent =
+              formatSeconds(totalSeconds);
           })
           .catch((error) => console.error("Error fetching tasks:", error));
       }
