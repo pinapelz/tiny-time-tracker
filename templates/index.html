@@ -104,11 +104,12 @@
         </div>
 
         <div id="result" class="mt-4"></div>
-
+        <div class="mb-4 text-gray-800">
+          <h1 class="text-lg font-semibold">
+            Grand Total: <span id="grandTotal">0h 0m 0s</span>
+          </h1>
+        </div>
         <div class="mt-8 overflow-x-auto">
-          <div class="mb-4 text-gray-800 text-lg font-semibold">
-            Note: Total time is only updated once an application stops running.
-          </div>
           <table
             class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm"
           >
@@ -146,6 +147,9 @@
             </tbody>
           </table>
         </div>
+        <div class="mb-4 text-gray-800 text-lg">
+          Note: Total time is only updated once an application stops running.
+        </div>
       </main>
     </div>
     <script>
@@ -162,31 +166,36 @@
           .then((response) => response.json())
           .then((data) => {
             const tbody = document.getElementById("timeEntries");
+            let totalSeconds = 0;
             tbody.innerHTML = data
               .map(
-                (task) => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <a href="/task/${task[0]}" class="text-blue-600 hover:text-blue-800">
-                            ${task[1]}
-                        </a>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${task[4] || ""}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${task[2]}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${task[5]}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${formatSeconds(task[3])}
-                    </td>
-                </tr>
-            `
+                (task) => {
+                  totalSeconds += task[3];
+                  return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <a href="/task/${task[0]}" class="text-blue-600 hover:text-blue-800">
+                                ${task[1]}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${task[4] || ""}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${task[2]}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${task[5]}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${formatSeconds(task[3])}
+                        </td>
+                    </tr>
+                  `;
+                }
               )
               .join("");
+            document.getElementById("grandTotal").textContent = formatSeconds(totalSeconds);
           })
           .catch((error) => console.error("Error fetching tasks:", error));
       }
