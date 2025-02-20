@@ -62,7 +62,7 @@ pub fn show_confirmation_dialog(title: &str, message: &str) -> bool {
     let result: rfd::MessageDialogResult = MessageDialog::new()
         .set_title(title)
         .set_description(message)
-        .set_buttons(MessageButtons::OkCancel)
+        .set_buttons(MessageButtons::YesNo)
         .show();
     result == MessageDialogResult::Yes
 }
