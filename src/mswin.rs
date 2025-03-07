@@ -8,12 +8,12 @@ use rfd::MessageDialog;
 use rfd::MessageButtons;
 
 
-pub fn filechooser_select_executable() -> String {
-    let path = FileDialog::new()
-    .add_filter("Executable", &["exe"])
-    .add_filter("All Files", &["*"])
-    .pick_file();
-    path.unwrap().to_str().unwrap().to_string()
+pub fn filechooser_select_executable() -> Option<String> {
+    FileDialog::new()
+        .add_filter("Executable", &["exe"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+        .map(|path| path.to_str().unwrap().to_string())
 }
 
 

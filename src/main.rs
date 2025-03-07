@@ -27,7 +27,7 @@ struct CreateTaskForm {
 }
 
 #[derive(Deserialize)]
-struct DeletionForm {
+struct ModificationForm {
     id: i64,
 }
 
@@ -69,6 +69,7 @@ async fn start_web_server() {
     let app = Router::new()
         .route("/", get(index))
         .route("/create", post(create_new_tracked_app))
+        .route("/modify_path", post(modify_app_path))
         .route("/delete", post(delete_tracked_app))
         .route("/tasks", get(get_tasks))
         .route("/task/:id", get(task_detailed_view_page))
@@ -88,7 +89,7 @@ async fn index(Query(params): Query<TasksParams>) -> impl IntoResponse {
     let template = IndexTemplate {
         show_disabled: params.show_disabled.unwrap_or(false)
     };
-    
+
     match template.render() {
         Ok(html) => Html(html).into_response(),
         Err(e) => (
@@ -102,7 +103,7 @@ async fn get_tasks(Query(params): Query<TasksParams>) -> impl IntoResponse {
     dotenv().ok();
     let db_path = env::var("DB_PATH")
         .expect("DB_PATH must be set in .env file");
-    
+
     match db::db::get_all_tasks(&db_path, params.show_disabled.unwrap_or(false)) {
         Ok(tasks) => Json(tasks).into_response(),
         Err(e) => (
@@ -161,12 +162,26 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
         .expect("DB_PATH must be set in .env file");
 
     let next_available_id = db::db::get_next_id(&db_path).unwrap();
-    let filepath = mswin::filechooser_select_executable();
-    let volume_path = mswin::get_device_path(&filepath).unwrap();
+    let filepath = match mswin::filechooser_select_executable() {
+        Some(path) => path,
+        None => return Html("File selection canceled.".to_string()),
+    };
+
+
+    let volume_path = mswin::get_device_path(&filepath)
+        .unwrap_or_else(|err| {
+            eprintln!("Error getting device path: {}", err);
+            String::new()
+        });
+
+    if volume_path == String::new(){
+        return Html("Failed to convert to volume path.".to_string())
+    }
+
 
     if db::db::file_path_already_tracked(db_path.as_str(), filepath.as_str()).unwrap(){
         if !show_confirmation_dialog(
-        "File Already Exists", 
+        "File Already Exists",
         "This executable is already tracked or was previously tracked. Do you want to add it anyways?"){
             return Html(format!(
                 "Task creation cancelled. No change has occured",
@@ -217,7 +232,7 @@ async fn create_new_tracked_app(Form(form): Form<CreateTaskForm>) -> impl IntoRe
     ))
 }
 
-async fn delete_tracked_app(Form(form): Form<DeletionForm>) -> impl IntoResponse {
+async fn delete_tracked_app(Form(form): Form<ModificationForm>) -> impl IntoResponse {
     dotenv().ok();
     let db_path = env::var("DB_PATH")
         .expect("DB_PATH must be set in .env file");
@@ -227,11 +242,21 @@ async fn delete_tracked_app(Form(form): Form<DeletionForm>) -> impl IntoResponse
     Html(format!("Program with ID: {} has been deleted. You can still navigate to this URL to view details later", form.id))
 }
 
+async fn modify_app_path(Form(form): Form<ModificationForm>) -> impl IntoResponse {
+    dotenv().ok();
+    // easier to just delete and then re-create the task
+    let db_path = env::var("DB_PATH").expect("DB_PATH must be in .env file");
+    let trigger_exe_path = env::var("TRIGGER_EXE_PATH")
+    .expect("TRIGGER_EXE_PATH must be set in .env file");
+    scheduler::delete_scheduled_task(&form.id.to_string()).unwrap();
+    Html(format!("Stub for now come back later! {}", 2))
+}
+
 fn enable_auto_cleanup_active_task(){
     dotenv().ok();
     let auto_cleanup = env::var("AUTO_CLEANUP_ACTIVE_TASKS")
     .map(|v| v.to_lowercase() == "true")
-    .unwrap_or(false); 
+    .unwrap_or(false);
     if auto_cleanup{
         let trigger_exe_path = env::var("TRIGGER_EXE_PATH")
         .expect("TRIGGER_EXE_PATH must be set in .env file");
