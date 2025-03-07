@@ -13,6 +13,15 @@
             <h1 class="text-3xl font-bold text-gray-800">{{ name }}</h1>
             <div class="flex gap-4">
                 <button
+                    class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                    hx-post="/modify_path"
+                    hx-vals='{"id": "{{ id }}"}'
+                    hx-target="#message-container"
+                    hx-swap="innerHTML"
+                >
+                    Change Path
+                </button>
+                <button
                     class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
                     hx-post="/delete"
                     hx-vals='{"id": "{{ id }}"}'

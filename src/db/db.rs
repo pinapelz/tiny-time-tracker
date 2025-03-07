@@ -79,6 +79,28 @@ pub fn disable_task(db_path: &str, id: i64) -> Result<bool> {
     Ok(true)
 }
 
+pub fn get_volume_path_by_id(db_path: &str, id: i64) -> Result<String> {
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare("SELECT diskpath FROM tasks WHERE id = ?1")?;
+    let diskpath: String = stmt.query_row([id], |row| row.get(0))?;
+    Ok(diskpath)
+}
+
+pub fn set_new_filepath(db_path: &str, id: i64, new_filepath: &str) -> Result<bool> {
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare("UPDATE tasks SET filepath = ?1 WHERE id = ?2")?;
+    stmt.execute([new_filepath, &id.to_string()])?;
+    Ok(true)
+}
+
+pub fn set_new_volumepath(db_path: &str, id: i64, new_volumepath: &str) -> Result<bool> {
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare("UPDATE tasks SET diskpath = ?1 WHERE id = ?2")?;
+    stmt.execute([new_volumepath, &id.to_string()])?;
+    Ok(true)
+}
+
+
 // id, name, last_opened, total_playtime, notes, session_count, filepath, volume_path, sessions
 pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i64, String, i64, String, String, Vec<(String, String)>)> {
     let conn = Connection::open(db_path)?;

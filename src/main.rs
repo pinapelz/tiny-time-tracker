@@ -248,8 +248,54 @@ async fn modify_app_path(Form(form): Form<ModificationForm>) -> impl IntoRespons
     let db_path = env::var("DB_PATH").expect("DB_PATH must be in .env file");
     let trigger_exe_path = env::var("TRIGGER_EXE_PATH")
     .expect("TRIGGER_EXE_PATH must be set in .env file");
+
+    let filepath = match mswin::filechooser_select_executable() {
+        Some(path) => path,
+        None => return Html("File selection canceled.".to_string()),
+    };
     scheduler::delete_scheduled_task(&form.id.to_string()).unwrap();
-    Html(format!("Stub for now come back later! {}", 2))
+    let launch_task_name = format!("OnLaunchTinyTimeTracker{}", form.id.to_string());
+    let close_task_name = format!("OnCloseTinyTimeTracker{}", form.id.to_string());
+
+    let volume_path = mswin::get_device_path(&filepath)
+        .unwrap_or_else(|err| {
+            eprintln!("Error getting device path: {}", err);
+            String::new()
+        });
+
+    if volume_path == String::new(){
+        return Html("Failed to convert to volume path.".to_string())
+    }
+    
+    if let Err(e) = scheduler::create_scheduled_task(
+        &launch_task_name,
+        &volume_path,
+        "4688",
+        &trigger_exe_path,
+        &form.id.to_string(),
+        &db_path,
+    ) {
+        eprintln!("Error creating scheduled task for Launch: {}", e);
+    }
+    if let Err(e) = scheduler::create_scheduled_task(
+        &close_task_name,
+        &volume_path,
+        "4689",
+        &trigger_exe_path,
+        &form.id.to_string(),
+        &db_path,
+    ) {
+        eprintln!("Error creating scheduled task for Launch: {}", e);
+    }
+    if let Err(e) = db::db::set_new_filepath(db_path.as_str(), form.id, &filepath) {
+        eprintln!("Error updating file path: {}", e);
+        return Html(format!("Failed to update file path: {}", e));
+    }
+    if let Err(e) = db::db::set_new_volumepath(db_path.as_str(), form.id, &volume_path) {
+        eprintln!("Error updating volume path: {}", e);
+        return Html(format!("Failed to update volume path: {}", e));
+    }
+    Html(format!("Executable path sucessfully changed! Refresh to see the result"))
 }
 
 fn enable_auto_cleanup_active_task(){
