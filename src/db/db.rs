@@ -79,13 +79,6 @@ pub fn disable_task(db_path: &str, id: i64) -> Result<bool> {
     Ok(true)
 }
 
-pub fn get_volume_path_by_id(db_path: &str, id: i64) -> Result<String> {
-    let conn = Connection::open(db_path)?;
-    let mut stmt = conn.prepare("SELECT diskpath FROM tasks WHERE id = ?1")?;
-    let diskpath: String = stmt.query_row([id], |row| row.get(0))?;
-    Ok(diskpath)
-}
-
 pub fn set_new_filepath(db_path: &str, id: i64, new_filepath: &str) -> Result<bool> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare("UPDATE tasks SET filepath = ?1 WHERE id = ?2")?;
@@ -105,19 +98,19 @@ pub fn set_new_volumepath(db_path: &str, id: i64, new_volumepath: &str) -> Resul
 pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i64, String, i64, String, String, Vec<(String, String)>)> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.name, 
-        CASE 
-            WHEN a.id IS NOT NULL THEN 'Running' 
+        "SELECT t.id, t.name,
+        CASE
+            WHEN a.id IS NOT NULL THEN 'Running'
             ELSE COALESCE(
-                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id), 
+                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id),
                 'Never'
-            ) 
+            )
         END AS last_opened,
-        CASE 
-            WHEN a.id IS NOT NULL THEN 
-                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) + 
+        CASE
+            WHEN a.id IS NOT NULL THEN
+                COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) +
                 (strftime('%s', 'now') - strftime('%s', a.datetime))
-            ELSE 
+            ELSE
                 COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0)
         END AS total_playtime,
         COALESCE(t.notes, '') as notes,
@@ -129,9 +122,9 @@ pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i
         WHERE t.id = ?1"
     )?;
     let task = stmt.query_row(&[id], |row| Ok((
-        row.get(0)?, 
-        row.get(1)?, 
-        row.get(2)?, 
+        row.get(0)?,
+        row.get(1)?,
+        row.get(2)?,
         row.get(3)?,
         row.get(4)?,
         row.get(5)?,
@@ -155,13 +148,13 @@ pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, 
     let conn = Connection::open(db_path)?;
     let where_clause = if !include_disabled { "WHERE t.enabled = 1" } else { "" };
     let query = format!(
-        "SELECT t.id, t.name, 
-        CASE 
-            WHEN a.id IS NOT NULL THEN 'Running' 
+        "SELECT t.id, t.name,
+        CASE
+            WHEN a.id IS NOT NULL THEN 'Running'
             ELSE COALESCE(
-                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id), 
+                (SELECT MAX(s.start_time) FROM sessions s WHERE s.id = t.id),
                 'Never'
-            ) 
+            )
         END AS last_opened,
         COALESCE((SELECT SUM(r.active_time) FROM records r WHERE r.id = t.id), 0) AS total_playtime,
         COALESCE(t.notes, '') as notes,
@@ -170,13 +163,13 @@ pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, 
         LEFT JOIN active a ON t.id = a.id
         {}", where_clause
     );
-    
+
     let mut stmt = conn.prepare(&query)?;
     let tasks = stmt
         .query_map([], |row| Ok((
-            row.get(0)?, 
-            row.get(1)?, 
-            row.get(2)?, 
+            row.get(0)?,
+            row.get(1)?,
+            row.get(2)?,
             row.get(3)?,
             row.get(4)?,
             row.get(5)?
