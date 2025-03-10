@@ -253,7 +253,16 @@ async fn modify_app_path(Form(form): Form<ModificationForm>) -> impl IntoRespons
         Some(path) => path,
         None => return Html("File selection canceled.".to_string()),
     };
-    scheduler::delete_scheduled_task(&form.id.to_string()).unwrap();
+
+    let create_anyway = if let Err(_) = scheduler::delete_scheduled_task(&form.id.to_string()) {
+        mswin::show_confirmation_dialog(
+            "Unable to find task",
+            "Wasn't able to delete task. It's likely it wasn't a tracked scheduled task to begin with. Re-create it anyways?"
+        )
+    } else {
+        true
+    };
+
     let launch_task_name = format!("OnLaunchTinyTimeTracker{}", form.id.to_string());
     let close_task_name = format!("OnCloseTinyTimeTracker{}", form.id.to_string());
 
@@ -266,26 +275,28 @@ async fn modify_app_path(Form(form): Form<ModificationForm>) -> impl IntoRespons
     if volume_path == String::new(){
         return Html("Failed to convert to volume path.".to_string())
     }
-    
-    if let Err(e) = scheduler::create_scheduled_task(
-        &launch_task_name,
-        &volume_path,
-        "4688",
-        &trigger_exe_path,
-        &form.id.to_string(),
-        &db_path,
-    ) {
-        eprintln!("Error creating scheduled task for Launch: {}", e);
-    }
-    if let Err(e) = scheduler::create_scheduled_task(
-        &close_task_name,
-        &volume_path,
-        "4689",
-        &trigger_exe_path,
-        &form.id.to_string(),
-        &db_path,
-    ) {
-        eprintln!("Error creating scheduled task for Launch: {}", e);
+
+    if create_anyway {
+        if let Err(e) = scheduler::create_scheduled_task(
+            &launch_task_name,
+            &volume_path,
+            "4688",
+            &trigger_exe_path,
+            &form.id.to_string(),
+            &db_path,
+        ) {
+            eprintln!("Error creating scheduled task for Launch: {}", e);
+        }
+        if let Err(e) = scheduler::create_scheduled_task(
+            &close_task_name,
+            &volume_path,
+            "4689",
+            &trigger_exe_path,
+            &form.id.to_string(),
+            &db_path,
+        ) {
+            eprintln!("Error creating scheduled task for Launch: {}", e);
+        }
     }
     if let Err(e) = db::db::set_new_filepath(db_path.as_str(), form.id, &filepath) {
         eprintln!("Error updating file path: {}", e);
