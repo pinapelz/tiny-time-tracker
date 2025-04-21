@@ -1,260 +1,294 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Time Tracker</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-      <header class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">Tiny Time Tracker</h1>
-      </header>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Time Tracker</title>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script src="https://unpkg.com/cal-heatmap/dist/cal-heatmap.min.js"></script>
+        <script src="https://unpkg.com/@popperjs/core@2"></script>
+        <script src="https://unpkg.com/cal-heatmap/dist/plugins/Tooltip.min.js"></script>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/cal-heatmap/dist/cal-heatmap.css"
+        />
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <header class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">
+                    Tiny Time Tracker
+                </h1>
+            </header>
 
-      <main>
-        <div class="flex gap-4 mb-4">
-          <button
-            class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-            onclick="document.getElementById('form-container').classList.toggle('hidden')"
-          >
-            Add New Application
-          </button>
-          {% if show_disabled %}
-          <a
-            href="/"
-            class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-          >
-            Show Active Only
-          </a>
-          {% else %}
-          <a
-            href="/?show_disabled=true"
-            class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-          >
-            Include Removed
-          </a>
-          {% endif %}
+            <main>
+                <div class="flex gap-4 mb-4">
+                    <button
+                        class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                        onclick="document.getElementById('form-container').classList.toggle('hidden')"
+                    >
+                        Add New Application
+                    </button>
+                    {% if show_disabled %}
+                    <a
+                        href="/"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                    >
+                        Show Active Only
+                    </a>
+                    {% else %}
+                    <a
+                        href="/?show_disabled=true"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                    >
+                        Include Removed
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div
+                    id="form-container"
+                    class="hidden transition-all duration-300"
+                >
+                    <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
+                        <form
+                            hx-post="/create"
+                            hx-target="#result"
+                            hx-on::after-request="updateTasks()"
+                        >
+                            <div class="mb-4">
+                                <label
+                                    for="task_name"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >
+                                    Application Name
+                                </label>
+                                <input
+                                    type="text"
+                                    id="task_name"
+                                    name="task_name"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter application name"
+                                />
+                            </div>
+                            <div class="mb-4">
+                                <label
+                                    for="notes"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >
+                                    Notes (optional)
+                                </label>
+                                <textarea
+                                    id="notes"
+                                    name="notes"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter notes about this application"
+                                    rows="3"
+                                ></textarea>
+                            </div>
+                            <div class="mb-4 flex items-center">
+                                <input
+                                    type="checkbox"
+                                    id="create_scheduled_tasks"
+                                    name="create_scheduled_tasks"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    onchange="this.value = this.checked ? 'true' : 'false'"
+                                    value="true"
+                                    checked
+                                />
+                                <label
+                                    for="create_scheduled_tasks"
+                                    class="ml-2 block text-sm text-gray-700"
+                                >
+                                    Create scheduled tasks for automatic
+                                    tracking
+                                </label>
+                            </div>
+                            <div class="flex justify-between">
+                                <button
+                                    type="submit"
+                                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                                >
+                                    Add Application
+                                </button>
+                                <button
+                                    type="button"
+                                    class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                                    onclick="document.getElementById('form-container').classList.add('hidden')"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="flex justify-center mb-8">
+                    <div id="cal-heatmap"></div>
+                </div>
+
+                <div id="result" class="mt-4"></div>
+                <div class="mb-4 text-gray-800">
+                    <h1 class="text-lg font-semibold">
+                        Grand Total: <span id="grandTotal">0h 0m 0s</span>
+                    </h1>
+                </div>
+                <div class="mt-8 overflow-x-auto">
+                    <table
+                        class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm"
+                    >
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onclick="sortTable('name')"
+                                >
+                                    Name
+                                    <span id="sort-name" class="ml-1"></span>
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onclick="sortTable('notes')"
+                                >
+                                    Notes
+                                    <span id="sort-notes" class="ml-1"></span>
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onclick="sortTable('lastActivity')"
+                                >
+                                    Last Activity
+                                    <span
+                                        id="sort-lastActivity"
+                                        class="ml-1"
+                                    ></span>
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onclick="sortTable('sessions')"
+                                >
+                                    Sessions
+                                    <span
+                                        id="sort-sessions"
+                                        class="ml-1"
+                                    ></span>
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    onclick="sortTable('totalTime')"
+                                >
+                                    Total Time
+                                    <span
+                                        id="sort-totalTime"
+                                        class="ml-1"
+                                    ></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody
+                            class="divide-y divide-gray-200"
+                            id="timeEntries"
+                        >
+                            <!-- Time entries will be dynamically inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mb-4 text-gray-800 text-lg">
+                    Note: Total time is only updated once an application stops
+                    running.
+                </div>
+            </main>
         </div>
+        <script>
+            let currentSort = {
+                column: "name",
+                direction: "asc",
+            };
 
-        <div id="form-container" class="hidden transition-all duration-300">
-          <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
-            <form
-              hx-post="/create"
-              hx-target="#result"
-              hx-on::after-request="updateTasks()"
-            >
-              <div class="mb-4">
-                <label
-                  for="task_name"
-                  class="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Application Name
-                </label>
-                <input
-                  type="text"
-                  id="task_name"
-                  name="task_name"
-                  required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter application name"
-                />
-              </div>
-              <div class="mb-4">
-                <label
-                  for="notes"
-                  class="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Notes (optional)
-                </label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter notes about this application"
-                  rows="3"
-                ></textarea>
-              </div>
-              <div class="mb-4 flex items-center">
-                <input
-                  type="checkbox"
-                  id="create_scheduled_tasks"
-                  name="create_scheduled_tasks"
-                  class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  onchange="this.value = this.checked ? 'true' : 'false'"
-                  value="true"
-                  checked
-                />
-                <label
-                  for="create_scheduled_tasks"
-                  class="ml-2 block text-sm text-gray-700"
-                >
-                  Create scheduled tasks for automatic tracking
-                </label>
-              </div>
-              <div class="flex justify-between">
-                <button
-                  type="submit"
-                  class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                >
-                  Add Application
-                </button>
-                <button
-                  type="button"
-                  class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                  onclick="document.getElementById('form-container').classList.add('hidden')"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            function sortTable(column) {
+                const sortSpan = document.getElementById(`sort-${column}`);
+                if (currentSort.column == column) {
+                    currentSort.direction =
+                        currentSort.direction === "asc" ? "desc" : "asc";
+                } else {
+                    const lastSortedColumnSpan = document.getElementById(
+                        `sort-${currentSort.column}`,
+                    );
+                    lastSortedColumnSpan.textContent = "";
+                    currentSort.column = column;
+                    currentSort.direction = "asc";
+                }
+                document.querySelectorAll('[id^="sort-"]').forEach((span) => {
+                    span.textContent = "";
+                    span.classList.add("text-gray-300");
+                });
+                sortSpan.textContent =
+                    currentSort.direction === "asc" ? "▲" : "▼";
+                sortSpan.classList.remove("text-gray-300");
+                updateTasks();
+            }
 
-        <div id="result" class="mt-4"></div>
-        <div class="mb-4 text-gray-800">
-          <h1 class="text-lg font-semibold">
-            Grand Total: <span id="grandTotal">0h 0m 0s</span>
-          </h1>
-        </div>
-        <div class="mt-8 overflow-x-auto">
-          <table
-            class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm"
-          >
-            <thead class="bg-gray-50">
-              <tr>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                  onclick="sortTable('name')"
-                >
-                  Name
-                  <span id="sort-name" class="ml-1"></span>
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                  onclick="sortTable('notes')"
-                >
-                  Notes
-                  <span id="sort-notes" class="ml-1"></span>
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                  onclick="sortTable('lastActivity')"
-                >
-                  Last Activity
-                  <span id="sort-lastActivity" class="ml-1"></span>
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                  onclick="sortTable('sessions')"
-                >
-                  Sessions
-                  <span id="sort-sessions" class="ml-1"></span>
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
-                  onclick="sortTable('totalTime')"
-                >
-                  Total Time
-                  <span id="sort-totalTime" class="ml-1"></span>
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200" id="timeEntries">
-              <!-- Time entries will be dynamically inserted here -->
-            </tbody>
-          </table>
-        </div>
-        <div class="mb-4 text-gray-800 text-lg">
-          Note: Total time is only updated once an application stops running.
-        </div>
-      </main>
-    </div>
-    <script>
-      let currentSort = {
-        column: "name",
-        direction: "asc",
-      };
+            function formatSeconds(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const remainingSeconds = seconds % 60;
+                return `${hours}h ${minutes}m ${remainingSeconds}s`;
+            }
 
-      function sortTable(column) {
-        const sortSpan = document.getElementById(`sort-${column}`);
-        if (currentSort.column == column) {
-          currentSort.direction =
-            currentSort.direction === "asc" ? "desc" : "asc";
-        } else {
-          const lastSortedColumnSpan = document.getElementById(`sort-${currentSort.column}`);
-          lastSortedColumnSpan.textContent = "";
-          currentSort.column = column;
-          currentSort.direction = "asc";
-        }
-        document.querySelectorAll('[id^="sort-"]').forEach((span) => {
-          span.textContent = "";
-          span.classList.add("text-gray-300");
-        });
-        sortSpan.textContent = currentSort.direction === "asc" ? "▲" : "▼";
-        sortSpan.classList.remove("text-gray-300");
-        updateTasks();
-      }
+            function updateTasks() {
+                const url =
+                    "/tasks{% if show_disabled %}?show_disabled=true{% endif %}";
+                fetch(url)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        data.sort((a, b) => {
+                            let compareA, compareB;
 
-      function formatSeconds(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const remainingSeconds = seconds % 60;
-        return `${hours}h ${minutes}m ${remainingSeconds}s`;
-      }
+                            switch (currentSort.column) {
+                                case "name":
+                                    compareA = a[1].toLowerCase();
+                                    compareB = b[1].toLowerCase();
+                                    break;
+                                case "notes":
+                                    compareA = (a[4] || "").toLowerCase();
+                                    compareB = (b[4] || "").toLowerCase();
+                                    break;
+                                case "lastActivity":
+                                    compareA = new Date(a[2]);
+                                    compareB = new Date(b[2]);
+                                    break;
+                                case "sessions":
+                                    compareA = a[5];
+                                    compareB = b[5];
+                                    break;
+                                case "totalTime":
+                                    compareA = a[3];
+                                    compareB = b[3];
+                                    break;
+                                default:
+                                    compareA = a[1].toLowerCase();
+                                    compareB = b[1].toLowerCase();
+                            }
 
-      function updateTasks() {
-        const url =
-          "/tasks{% if show_disabled %}?show_disabled=true{% endif %}";
-        fetch(url)
-          .then((response) => response.json())
-          .then((data) => {
-            data.sort((a, b) => {
-              let compareA, compareB;
-
-              switch (currentSort.column) {
-                case "name":
-                  compareA = a[1].toLowerCase();
-                  compareB = b[1].toLowerCase();
-                  break;
-                case "notes":
-                  compareA = (a[4] || "").toLowerCase();
-                  compareB = (b[4] || "").toLowerCase();
-                  break;
-                case "lastActivity":
-                  compareA = new Date(a[2]);
-                  compareB = new Date(b[2]);
-                  break;
-                case "sessions":
-                  compareA = a[5];
-                  compareB = b[5];
-                  break;
-                case "totalTime":
-                  compareA = a[3];
-                  compareB = b[3];
-                  break;
-                default:
-                  compareA = a[1].toLowerCase();
-                  compareB = b[1].toLowerCase();
-              }
-
-              if (compareA < compareB)
-                return currentSort.direction === "asc" ? -1 : 1;
-              if (compareA > compareB)
-                return currentSort.direction === "asc" ? 1 : -1;
-              return 0;
-            });
-            const tbody = document.getElementById("timeEntries");
-            let totalSeconds = 0;
-            tbody.innerHTML = data
-              .map((task) => {
-                totalSeconds += task[3];
-                return `
+                            if (compareA < compareB)
+                                return currentSort.direction === "asc" ? -1 : 1;
+                            if (compareA > compareB)
+                                return currentSort.direction === "asc" ? 1 : -1;
+                            return 0;
+                        });
+                        const tbody = document.getElementById("timeEntries");
+                        let totalSeconds = 0;
+                        tbody.innerHTML = data
+                            .map((task) => {
+                                totalSeconds += task[3];
+                                return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             <a href="/task/${
-                              task[0]
+                                task[0]
                             }" class="text-blue-600 hover:text-blue-800">
                                 ${task[1]}
                             </a>
@@ -273,16 +307,70 @@
                         </td>
                     </tr>
                   `;
-              })
-              .join("");
-            document.getElementById("grandTotal").textContent =
-              formatSeconds(totalSeconds);
-          })
-          .catch((error) => console.error("Error fetching tasks:", error));
-      }
+                            })
+                            .join("");
+                        document.getElementById("grandTotal").textContent =
+                            formatSeconds(totalSeconds);
+                    })
+                    .catch((error) =>
+                        console.error("Error fetching tasks:", error),
+                    );
+            }
 
-      document.addEventListener("DOMContentLoaded", updateTasks);
-      setInterval(updateTasks, 30000);
-    </script>
-  </body>
+            document.addEventListener("DOMContentLoaded", updateTasks);
+            setInterval(updateTasks, 30000);
+        </script>
+        <script>
+            const cal = new CalHeatmap();
+
+            cal.paint(
+                {
+                    itemSelector: "#cal-heatmap",
+                    range: 12,
+                    data: {
+                        source: "/yearly?id=-1",
+                        x: "date",
+                        y: "value",
+                    },
+                    domain: {
+                        type: "month",
+                        gutter: 12,
+                    },
+                    subDomain: {
+                        type: "day",
+                        radius: 3,
+                        width: 18,
+                        height: 18,
+                        gutter: 3,
+                    },
+                    date: {
+                        start: new Date(
+                            new Date().setMonth(new Date().getMonth() - 9),
+                        ),
+                    },
+                    scale: {
+                        color: {
+                            scheme: "Blues",
+                            domain: [0, 10],
+                        },
+                    },
+                    verticalOrientation: false,
+                },
+                [
+                    [
+                        Tooltip,
+                        {
+                            text: function (date, value, dayjsDate) {
+                                return (
+                                    (value ? value : "No") +
+                                    " sessions on " +
+                                    dayjsDate.format("dddd, MMMM D, YYYY")
+                                );
+                            },
+                        },
+                    ],
+                ],
+            );
+        </script>
+    </body>
 </html>

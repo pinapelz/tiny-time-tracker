@@ -15,6 +15,7 @@ mod db;
 use dotenv::dotenv;
 use std::env;
 use serde::Deserialize;
+use serde_json::json;
 use askama::Template;
 
 
@@ -74,6 +75,7 @@ async fn start_web_server() {
         .route("/tasks", get(get_tasks))
         .route("/task/:id", get(task_detailed_view_page))
         .route("/disablecleanup", get(disable_auto_cleanup_active_task))
+        .route("/yearly", get(get_yearly_activity))
         .nest_service("/static", ServeDir::new("static"));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -109,6 +111,25 @@ async fn get_tasks(Query(params): Query<TasksParams>) -> impl IntoResponse {
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             format!("Failed to fetch tasks: {}", e)
+        ).into_response(),
+    }
+}
+
+async fn get_yearly_activity(Form(form): Form<ModificationForm>) -> impl IntoResponse {
+    dotenv().ok();
+    let db_path = env::var("DB_PATH").expect("DB_PATH must be set in .env file");
+
+    match db::db::get_activity_year(&db_path, form.id) {
+        Ok(activity) => {
+            let activity_json: Vec<_> = activity
+                .into_iter()
+                .map(|(date, value)| json!({ "date": date, "value": value }))
+                .collect();
+            Json(activity_json).into_response()
+        },
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to fetch activity: {}", e),
         ).into_response(),
     }
 }

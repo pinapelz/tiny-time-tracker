@@ -1,7 +1,5 @@
 use rusqlite::{Connection, Result};
 
-
-
 pub fn create_db() -> Result<()> {
     let conn = Connection::open("ttt.db")?;
     conn.execute(
@@ -47,7 +45,14 @@ pub fn create_db() -> Result<()> {
     Ok(())
 }
 
-pub fn insert_task(db_path: &str, id: &str, name: &str, notes: &str, diskpath: &str, filepath: &str) -> Result<()> {
+pub fn insert_task(
+    db_path: &str,
+    id: &str,
+    name: &str,
+    notes: &str,
+    diskpath: &str,
+    filepath: &str,
+) -> Result<()> {
     let conn = Connection::open(db_path)?;
     conn.execute(
         "INSERT INTO tasks (id, name, notes, diskpath, filepath) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -57,7 +62,7 @@ pub fn insert_task(db_path: &str, id: &str, name: &str, notes: &str, diskpath: &
     Ok(())
 }
 
-pub fn get_next_id(db_path: &str,) -> Result<i64> {
+pub fn get_next_id(db_path: &str) -> Result<i64> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare("SELECT COALESCE(MAX(id), 0) + 1 FROM tasks")?;
     let next_id: i64 = stmt.query_row([], |row| row.get(0))?;
@@ -93,9 +98,51 @@ pub fn set_new_volumepath(db_path: &str, id: i64, new_volumepath: &str) -> Resul
     Ok(true)
 }
 
+pub fn get_activity_year(db_path: &str, id: i64) -> Result<Vec<(String, i64)>> {
+    let conn = Connection::open(db_path)?;
+    if id != -1 {
+        let mut stmt = conn.prepare(
+            "SELECT DATE(start_time) AS session_date, COUNT(*) AS session_count
+            FROM sessions
+            WHERE DATE(start_time) >= DATE('now', '-365 days')
+            AND id = ?1
+            GROUP BY session_date
+            ORDER BY session_date ASC;",
+        )?;
+        let activity = stmt
+            .query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>>>()?;
+        Ok(activity)
+    } else {
+        let mut stmt = conn.prepare(
+            "SELECT DATE(start_time) AS session_date, COUNT(*) AS session_count
+            FROM sessions
+            WHERE DATE(start_time) >= DATE('now', '-365 days')
+            GROUP BY session_date
+            ORDER BY session_date ASC;",
+        )?;
+        let activity = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>>>()?;
+        Ok(activity)
+    }
+}
 
 // id, name, last_opened, total_playtime, notes, session_count, filepath, volume_path, sessions
-pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i64, String, i64, String, String, Vec<(String, String)>)> {
+pub fn get_task_by_id(
+    db_path: &str,
+    id: &str,
+) -> Result<(
+    i64,
+    String,
+    String,
+    i64,
+    String,
+    i64,
+    String,
+    String,
+    Vec<(String, String)>,
+)> {
     let conn = Connection::open(db_path)?;
     let mut stmt = conn.prepare(
         "SELECT t.id, t.name,
@@ -119,34 +166,42 @@ pub fn get_task_by_id(db_path: &str, id: &str) -> Result<(i64, String, String, i
         t.diskpath
         FROM tasks t
         LEFT JOIN active a ON t.id = a.id
-        WHERE t.id = ?1"
+        WHERE t.id = ?1",
     )?;
-    let task = stmt.query_row(&[id], |row| Ok((
-        row.get(0)?,
-        row.get(1)?,
-        row.get(2)?,
-        row.get(3)?,
-        row.get(4)?,
-        row.get(5)?,
-        row.get(6)?,
-        row.get(7)?
-    )))?;
+    let task = stmt.query_row(&[id], |row| {
+        Ok((
+            row.get(0)?,
+            row.get(1)?,
+            row.get(2)?,
+            row.get(3)?,
+            row.get(4)?,
+            row.get(5)?,
+            row.get(6)?,
+            row.get(7)?,
+        ))
+    })?;
 
-    let mut session_stmt = conn.prepare(
-        "SELECT start_time, end_time FROM sessions WHERE id = ?1"
-    )?;
-    let sessions = session_stmt.query_map(&[id], |row| Ok((
-        row.get(0)?,
-        row.get(1)?
-    )))?.collect::<Result<Vec<_>>>()?;
+    let mut session_stmt =
+        conn.prepare("SELECT start_time, end_time FROM sessions WHERE id = ?1")?;
+    let sessions = session_stmt
+        .query_map(&[id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok((task.0, task.1, task.2, task.3, task.4, task.5, task.6, task.7, sessions))
+    Ok((
+        task.0, task.1, task.2, task.3, task.4, task.5, task.6, task.7, sessions,
+    ))
 }
 
-
-pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
+pub fn get_all_tasks(
+    db_path: &str,
+    include_disabled: bool,
+) -> Result<Vec<(i64, String, String, i64, String, i64)>> {
     let conn = Connection::open(db_path)?;
-    let where_clause = if !include_disabled { "WHERE t.enabled = 1" } else { "" };
+    let where_clause = if !include_disabled {
+        "WHERE t.enabled = 1"
+    } else {
+        ""
+    };
     let query = format!(
         "SELECT t.id, t.name,
         CASE
@@ -161,19 +216,22 @@ pub fn get_all_tasks(db_path: &str, include_disabled: bool) -> Result<Vec<(i64, 
         COALESCE((SELECT COUNT(*) FROM sessions s WHERE s.id = t.id), 0) as session_count
         FROM tasks t
         LEFT JOIN active a ON t.id = a.id
-        {}", where_clause
+        {}",
+        where_clause
     );
 
     let mut stmt = conn.prepare(&query)?;
     let tasks = stmt
-        .query_map([], |row| Ok((
-            row.get(0)?,
-            row.get(1)?,
-            row.get(2)?,
-            row.get(3)?,
-            row.get(4)?,
-            row.get(5)?
-        )))?
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+            ))
+        })?
         .collect::<Result<Vec<_>>>()?;
     Ok(tasks)
 }

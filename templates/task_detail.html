@@ -1,91 +1,199 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ name }} - Details</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <header class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">{{ name }}</h1>
-            <div class="flex gap-4">
-                <a href="/">
-                <button
-                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
-                        Home
-                </button>
-                </a>
-                <button
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                    hx-post="/modify_path"
-                    hx-vals='{"id": "{{ id }}"}'
-                    hx-target="#message-container"
-                    hx-swap="innerHTML"
-                >
-                    Change Path
-                </button>
-                <button
-                    class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
-                    hx-post="/delete"
-                    hx-vals='{"id": "{{ id }}"}'
-                    hx-confirm="Are you sure you want to delete this task?"
-                    hx-target="#message-container"
-                    hx-swap="innerHTML"
-                >
-                    Remove Task
-                </button>
-                <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
-                    Back to List
-                </a>
-            </div>
-        </header>
-        <div id="message-container" class="mb-4 text-center text-gray-700 bg-white rounded-lg shadow-sm p-4 hidden"></div>
-        <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-4">
-                    <p class="text-gray-600"><span class="font-semibold">ID:</span> {{ id }}</p>
-                    <p class="text-gray-600"><span class="font-semibold">Last Opened:</span> {{ last_opened }}</p>
-                    <p class="text-gray-600"><span class="font-semibold">Total Playtime:</span> {{ total_playtime }}</p>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ name }} - Details</title>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script src="https://unpkg.com/cal-heatmap/dist/cal-heatmap.min.js"></script>
+        <script src="https://unpkg.com/@popperjs/core@2"></script>
+        <script src="https://unpkg.com/cal-heatmap/dist/plugins/Tooltip.min.js"></script>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/cal-heatmap/dist/cal-heatmap.css"
+        />
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <header class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">{{ name }}</h1>
+                <div class="flex gap-4">
+                    <a href="/">
+                        <button
+                            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                        >
+                            Home
+                        </button>
+                    </a>
+                    <button
+                        class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                        hx-post="/modify_path"
+                        hx-vals='{"id": "{{ id }}"}'
+                        hx-target="#message-container"
+                        hx-swap="innerHTML"
+                    >
+                        Change Path
+                    </button>
+                    <button
+                        class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                        hx-post="/delete"
+                        hx-vals='{"id": "{{ id }}"}'
+                        hx-confirm="Are you sure you want to delete this task?"
+                        hx-target="#message-container"
+                        hx-swap="innerHTML"
+                    >
+                        Remove Task
+                    </button>
+                    <a
+                        href="/"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200"
+                    >
+                        Back to List
+                    </a>
                 </div>
-                <div class="space-y-4">
-                    <p class="text-gray-600"><span class="font-semibold">File Path:</span> {{ filepath }}</p>
-                    <p class="text-gray-600"><span class="font-semibold">Volume Path:</span> {{ volume_path }}</p>
-                    <p class="text-gray-600"><span class="font-semibold">Notes:</span> {{ notes }}</p>
+            </header>
+            <div
+                id="message-container"
+                class="mb-4 text-center text-gray-700 bg-white rounded-lg shadow-sm p-4 hidden"
+            ></div>
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-4">
+                        <p class="text-gray-600">
+                            <span class="font-semibold">ID:</span> {{ id }}
+                        </p>
+                        <p class="text-gray-600">
+                            <span class="font-semibold">Last Opened:</span> {{
+                            last_opened }}
+                        </p>
+                        <p class="text-gray-600">
+                            <span class="font-semibold">Total Playtime:</span>
+                            {{ total_playtime }}
+                        </p>
+                    </div>
+                    <div class="space-y-4">
+                        <p class="text-gray-600">
+                            <span class="font-semibold">File Path:</span> {{
+                            filepath }}
+                        </p>
+                        <p class="text-gray-600">
+                            <span class="font-semibold">Volume Path:</span> {{
+                            volume_path }}
+                        </p>
+                        <p class="text-gray-600">
+                            <span class="font-semibold">Notes:</span> {{ notes
+                            }}
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
+            <div class="flex justify-center mb-8">
+                <div id="cal-heatmap"></div>
+            </div>
 
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Sessions ({{ session_count }})</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for (start, end) in sessions %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ start }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ end }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    Sessions ({{ session_count }})
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                    Start Time
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                    End Time
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for (start, end) in sessions %}
+                            <tr class="hover:bg-gray-50">
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                                >
+                                    {{ start }}
+                                </td>
+                                <td
+                                    class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                                >
+                                    {{ end }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
-    <script>
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'message-container' && evt.detail.target.innerHTML.trim() !== '') {
-                evt.detail.target.classList.remove('hidden');
-            }
-        });
-    </script>
-</body>
+        <script>
+            document.body.addEventListener("htmx:afterSwap", function (evt) {
+                if (
+                    evt.detail.target.id === "message-container" &&
+                    evt.detail.target.innerHTML.trim() !== ""
+                ) {
+                    evt.detail.target.classList.remove("hidden");
+                }
+            });
+        </script>
+        <script>
+            const cal = new CalHeatmap();
+
+            cal.paint(
+                {
+                    itemSelector: "#cal-heatmap",
+                    range: 12,
+                    data: {
+                        source: "/yearly?id={{id}}",
+                        x: "date",
+                        y: "value",
+                    },
+                    domain: {
+                        type: "month",
+                        gutter: 12,
+                    },
+                    subDomain: {
+                        type: "day",
+                        radius: 3,
+                        width: 18,
+                        height: 18,
+                        gutter: 3,
+                    },
+                    date: {
+                        start: new Date(
+                            new Date().setMonth(new Date().getMonth() - 9),
+                        ),
+                    },
+                    scale: {
+                        color: {
+                            scheme: "Blues",
+                            domain: [0, 10],
+                        },
+                    },
+                    verticalOrientation: false,
+                },
+                [
+                    [
+                        Tooltip,
+                        {
+                            text: function (date, value, dayjsDate) {
+                                return (
+                                    (value ? value : "No") +
+                                    " sessions on " +
+                                    dayjsDate.format("dddd, MMMM D, YYYY")
+                                );
+                            },
+                        },
+                    ],
+                ],
+            );
+        </script>
+    </body>
 </html>
